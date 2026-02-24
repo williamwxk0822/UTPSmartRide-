@@ -1,0 +1,110 @@
+#include <WiFi.h>          // optional (if you later send data online)
+#include <ArduinoJson.h>
+#include <TinyGPSPlus.h>
+
+// ------------------- GPS (GY-NEO6M / u-blox NEO-6M) -------------------
+// ESP32 has multiple UARTs. We'll use UART1.
+static const int GPS_RX_PIN = 16;   // ESP32 RX (connect to GPS TX)
+static const int GPS_TX_PIN = 17;   // ESP32 TX (connect to GPS RX)
+static const uint32_t GPS_BAUD = 9600; // NEO-6M default is usually 9600
+
+HardwareSerial GPS_Serial(1);
+TinyGPSPlus gps;
+
+// ------------------- Timing -------------------
+unsigned long lastReportMs = 0;
+const unsigned long REPORT_INTERVAL_MS = 1000; // output once per second
+
+// ------------------- Helpers -------------------
+bool gpsHasFix()
+{
+  // A "valid location" is the most important. You can also check hdop/sats if needed.
+  return gps.location.isValid() && gps.location.age() < 2000; // not older than 2s
+}
+
+float getSpeedKmph()
+{
+  // TinyGPS++ gives speed in km/h directly.
+  if (gps.speed.isValid())
+    return gps.speed.kmph();
+  return 0.0f;
+}
+
+void printGpsJson()
+{
+  // Build JSON packet (good for logging or sending to Firebase/MQTT)
+  StaticJsonDocument<256> doc;
+
+  if (gpsHasFix())
+  {
+    doc["fix"] = true;
+    doc["lat"] = gps.location.lat();
+    doc["lng"] = gps.location.lng();
+
+    // Speed & heading
+    doc["speed_kmph"] = getSpeedKmph();
+    doc["course_deg"] = gps.course.isValid() ? gps.course.deg() : nullptr;
+
+    // Quality indicators
+    doc["sats"] = gps.satellites.isValid() ? gps.satellites.value() : nullptr;
+    doc["hdop"] = gps.hdop.isValid() ? gps.hdop.hdop() : nullptr;
+
+    // Date/time if available (UTC)
+    if (gps.date.isValid() && gps.time.isValid())
+    {
+      char iso[25];
+      snprintf(iso, sizeof(iso), "%04d-%02d-%02dT%02d:%02d:%02dZ",
+               gps.date.year(), gps.date.month(), gps.date.day(),
+               gps.time.hour(), gps.time.minute(), gps.time.second());
+      doc["utc"] = iso;
+    }
+    else
+    {
+      doc["utc"] = nullptr;
+    }
+  }
+  else
+  {
+    doc["fix"] = false;
+    doc["lat"] = nullptr;
+    doc["lng"] = nullptr;
+    doc["speed_kmph"] = nullptr;
+    doc["course_deg"] = nullptr;
+    doc["sats"] = gps.satellites.isValid() ? gps.satellites.value() : nullptr;
+    doc["hdop"] = gps.hdop.isValid() ? gps.hdop.hdop() : nullptr;
+    doc["utc"] = nullptr;
+  }
+
+  serializeJson(doc, Serial);
+  Serial.println();
+}
+
+// ------------------- Setup -------------------
+void setup()
+{
+  Serial.begin(115200);
+  delay(200);
+
+  // Start GPS UART
+  GPS_Serial.begin(GPS_BAUD, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+  Serial.println("GPS reader started (NEO-6M @ 9600).");
+  Serial.println("Waiting for GPS fix...");
+}
+
+// ------------------- Loop -------------------
+void loop()
+{
+  // 1) Feed GPS parser continuously
+  while (GPS_Serial.available() > 0)
+  {
+    gps.encode(GPS_Serial.read());
+  }
+
+  // 2) Report every REPORT_INTERVAL_MS
+  unsigned long now = millis();
+  if (now - lastReportMs >= REPORT_INTERVAL_MS)
+  {
+    lastReportMs = now;
+    printGpsJson();
+  }
+}
