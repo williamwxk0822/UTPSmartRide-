@@ -1,0 +1,74 @@
+#include <WiFi.h>
+#include <FirebaseESP32.h>
+#include <SoftwareSerial.h>
+#include <ArduinoJson.h>
+
+// Firebase credentials
+#define FIREBASE_HOST "your-database.firebaseio.com"
+#define FIREBASE_AUTH "your-firebase-auth-token"
+
+// WiFi credentials
+const char* ssid = "your-ssid";
+const char* password = "your-password";
+
+// QR scanner pins
+#define QR_RX_PIN 16
+#define QR_TX_PIN 17
+SoftwareSerial qrSerial(QR_RX_PIN, QR_TX_PIN);
+
+// Firebase data object
+FirebaseData firebaseData;
+
+void setup() {
+  Serial.begin(115200);
+  qrSerial.begin(9600);
+
+  // Connect to WiFi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("Connected to WiFi");
+
+  // Initialize Firebase
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+  Firebase.reconnectWiFi(true);
+}
+
+void loop() {
+  if (qrSerial.available()) {
+    String qrCode = "";
+    while (qrSerial.available()) {
+      qrCode += (char) qrSerial.read();
+    }
+
+    Serial.print("QR Code: ");
+    Serial.println(qrCode);
+
+    // Check if QR code is valid
+    if (isValidTicket(qrCode)) {
+      Serial.println("Ticket Valid! Welcome onboard.");
+      // Optionally, you can trigger a confirmation action (LED, buzzer, etc.)
+    } else {
+      Serial.println("Ticket Invalid! Access Denied.");
+      // Optionally, you can trigger an error (LED, buzzer, etc.)
+    }
+  }
+  delay(100);
+}
+
+// Function to check if ticket is valid by querying Firebase
+bool isValidTicket(String ticketID) {
+  String path = "/bookings/" + ticketID + "/status"; // Path to the student status in Firebase
+  if (Firebase.getString(firebaseData, path)) {
+    if (firebaseData.dataType() == "string") {
+      String status = firebaseData.stringData();
+      // Check if status is valid
+      if (status == "valid") {
+        return true;
+      }
+    }
+  }
+  return false;
+}
