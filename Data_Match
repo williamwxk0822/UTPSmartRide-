@@ -1,0 +1,125 @@
+#include <WiFi.h>
+#include <FirebaseESP32.h>
+#include <SoftwareSerial.h>
+
+// ---------------- Firebase Credentials -----------------
+#define FIREBASE_HOST "your-database.firebaseio.com"
+#define FIREBASE_AUTH "your-firebase-auth-token"
+
+// ---------------- WiFi Credentials ----------------------
+const char* ssid = "your-ssid";
+const char* password = "your-password";
+
+// ----------------- Sensor Setup -------------------------
+#define US1_TRIG 21
+#define US1_ECHO 25
+#define US2_TRIG 23
+#define US2_ECHO 22
+#define US3_TRIG 26
+#define US3_ECHO 27
+#define US4_TRIG 32
+#define US4_ECHO 33
+
+// Distance threshold to determine if seat is occupied
+#define OCCUPIED_DIST 30
+
+// ----------------- Firebase Data -------------------------
+FirebaseData firebaseData;
+
+// ----------------- Seat Status ---------------------------
+uint8_t seatStatus[4] = {0, 0, 0, 0};  // Store seat status (0 = unbooked, 1 = booked)
+
+// ----------------- Function Declarations ----------------
+float getDistanceCM(int trigPin, int echoPin);
+bool isSeatOccupied(int seatIndex);
+void checkUnbookedSeats();
+
+// ----------------- Setup -------------------------------
+void setup() {
+  Serial.begin(115200);
+  
+  // Connect to WiFi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("Connected to WiFi");
+
+  // Initialize Firebase
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+  Firebase.reconnectWiFi(true);
+  
+  // Set sensor pins
+  pinMode(US1_TRIG, OUTPUT); pinMode(US1_ECHO, INPUT);
+  pinMode(US2_TRIG, OUTPUT); pinMode(US2_ECHO, INPUT);
+  pinMode(US3_TRIG, OUTPUT); pinMode(US3_ECHO, INPUT);
+  pinMode(US4_TRIG, OUTPUT); pinMode(US4_ECHO, INPUT);
+  
+  // Initialize seat status from Firebase
+  for (int i = 0; i < 4; i++) {
+    String path = "/bookings/seat_" + String(i + 1) + "/status";
+    if (Firebase.getString(firebaseData, path)) {
+      String status = firebaseData.stringData();
+      if (status == "booked") {
+        seatStatus[i] = 1;  // Seat is booked
+      } else {
+        seatStatus[i] = 0;  // Seat is unbooked
+      }
+    }
+  }
+}
+
+// ----------------- Loop -------------------------------
+void loop() {
+  checkUnbookedSeats();  // Check each seat
+
+  delay(1000);  // Check every second
+}
+
+// ----------------- Check Unbooked Seats ----------------
+void checkUnbookedSeats() {
+  for (int i = 0; i < 4; i++) {
+    if (isSeatOccupied(i) && seatStatus[i] == 0) {
+      // If seat is occupied but unbooked, trigger an alert
+      Serial.println("ALERT: Unbooked seat is being used (Seat " + String(i + 1) + ")");
+    }
+  }
+}
+
+// ----------------- Distance Calculation ----------------
+float getDistanceCM(int trigPin, int echoPin) {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  long duration = pulseIn(echoPin, HIGH, 30000);  // timeout 30ms
+  float distance = duration * 0.0343 / 2;         // convert to cm
+  return distance > 0 ? distance : 999;           // return large value if timeout
+}
+
+// ----------------- Seat Occupancy Check ----------------
+bool isSeatOccupied(int seatIndex) {
+  float distance = 0;
+
+  // Check the distance for the current seat
+  switch (seatIndex) {
+    case 0:
+      distance = getDistanceCM(US1_TRIG, US1_ECHO);
+      break;
+    case 1:
+      distance = getDistanceCM(US2_TRIG, US2_ECHO);
+      break;
+    case 2:
+      distance = getDistanceCM(US3_TRIG, US3_ECHO);
+      break;
+    case 3:
+      distance = getDistanceCM(US4_TRIG, US4_ECHO);
+      break;
+  }
+
+  // If the distance is less than the threshold, consider it occupied
+  return distance < OCCUPIED_DIST;
+}
