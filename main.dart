@@ -1,9 +1,4 @@
-// ================================================================
-// FIXED VERSION - All issues resolved:
-// 1. Replaced pushReplacementNamed with MaterialPageRoute
-// 2. Added resubmit button for declined verification
-// 3. All imports verified
-// ================================================================
+// utp smart ride - main.dart
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -20,12 +15,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
 
-// ================================================================
-// UI DESIGN KIT — colors, gradients, shadows & reusable widgets.
-// Pure presentation. No logic lives here.
-// ================================================================
+// ---------------- ui kit ----------------
+// colors, gradients, shadows + small reusable widgets
+// styling only, no logic in here
 class AppUI {
-  // Brand palette
+  // main colors
   static const Color primary = Color(0xFF3D5AFE);
   static const Color primaryDark = Color(0xFF1A237E);
   static const Color bg = Color(0xFFF4F6FB);
@@ -65,7 +59,7 @@ class AppUI {
       );
 }
 
-/// Small rounded icon badge used across cards and banners.
+// small rounded icon box, used in cards and banners
 class IconBadge extends StatelessWidget {
   final IconData icon;
   final Color color;
@@ -94,7 +88,7 @@ class IconBadge extends StatelessWidget {
   }
 }
 
-/// Gradient page header with title + subtitle, used on dashboards.
+// gradient header (title + subtitle) for the dashboards
 class GradientHeader extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -154,32 +148,30 @@ class GradientHeader extends StatelessWidget {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Firebase with comprehensive error handling
+
+  // start firebase, don't crash if something goes wrong
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     ).catchError((error) {
-      // Suppress duplicate app errors - Firebase is already running
+      // duplicate-app just means it's already running, ignore it
       if (error.toString().contains('duplicate-app')) {
-        debugPrint('✓ Firebase already initialized (duplicate error suppressed)');
+        debugPrint('Firebase already initialized (duplicate error suppressed)');
         return null;
       }
       throw error;
     });
-    debugPrint('✓ Firebase initialized successfully');
+    debugPrint('Firebase initialized successfully');
   } on FirebaseException catch (e) {
-    debugPrint('⚠️ Firebase warning: ${e.code} - ${e.message}');
+    debugPrint('Firebase warning: ${e.code} - ${e.message}');
   } catch (e) {
-    debugPrint('⚠️ Firebase catch-all: $e');
+    debugPrint('Firebase catch-all: $e');
   }
-  
+
   runApp(LoginApp());
 }
 
-// ================================================================
-// AUTH SERVICE
-// ================================================================
+// ---------------- auth service ----------------
 class AuthService {
   static final _db = FirebaseFirestore.instance;
   static final _users = _db.collection('users');
@@ -213,7 +205,7 @@ class AuthService {
       final userDoc = await _users.doc(username).get();
       final adminDoc = await _admins.doc(username).get();
       if (userDoc.exists || adminDoc.exists) return 'Username already exists';
-      
+
       await _users.doc(username).set({
         'password': password,
         'nickname': nickname,
@@ -247,13 +239,12 @@ class AuthService {
   }
 }
 
-// ================================================================
-// LOCATION SERVICE
-// ================================================================
+// ---------------- location service ----------------
 class LocationService {
   static final _doc =
       FirebaseFirestore.instance.collection('settings').doc('locations');
 
+  // used when nothing is saved in firestore yet
   static const List<String> _defaultLocations = [
     'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7',
     'Sport Complex', 'Chancellor Hall'
@@ -279,9 +270,7 @@ class LocationService {
   }
 }
 
-// ================================================================
-// APP ROOT
-// ================================================================
+// ---------------- app root ----------------
 class LoginApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -373,9 +362,7 @@ class LoginApp extends StatelessWidget {
   }
 }
 
-// ================================================================
-// LOGIN PAGE
-// ================================================================
+// ---------------- login page ----------------
 class LoginPage extends StatefulWidget {
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -387,7 +374,7 @@ class _LoginPageState extends State<LoginPage> {
   final passwordController = TextEditingController();
   bool obscureText = true;
   bool _isLoading = false;
-  int _iconTapCount = 0;
+  int _iconTapCount = 0; // counts taps on the bus icon (hidden admin signup)
 
   Future<void> login() async {
     if (!_formKey.currentState!.validate()) return;
@@ -410,7 +397,7 @@ class _LoginPageState extends State<LoginPage> {
         } else {
           final isDisabled = userData['isDisabled'] == true;
           final verificationStatus = userData['verificationStatus'] ?? 'approved';
-          
+
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -435,6 +422,7 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  // tap the icon 5 times to open admin signup
   void _onIconTap() {
     _iconTapCount++;
     if (_iconTapCount >= 5) {
@@ -571,9 +559,8 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-// ================================================================
-// UPDATED SIGN UP PAGE - with disabled user option
-// ================================================================
+// ---------------- sign up page ----------------
+// has the "disabled user" switch
 class SignUpPage extends StatefulWidget {
   @override
   State<SignUpPage> createState() => _SignUpPageState();
@@ -597,14 +584,14 @@ class _SignUpPageState extends State<SignUpPage> {
           passwordController.text,
           nicknameController.text.trim(),
           _isDisabledUser);
-      
+
       if (error != null) {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(error), backgroundColor: Colors.red));
       } else {
         final username = usernameController.text.trim();
-        
-        // If disabled user, navigate to verification page
+
+        // disabled users go verify their card first
         if (_isDisabledUser) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text("Account created! Please verify your disability card."),
@@ -616,7 +603,7 @@ class _SignUpPageState extends State<SignUpPage> {
             ),
           );
         } else {
-          // Regular user - return to login
+          // normal user, back to login
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text("Account created! Please log in."),
               backgroundColor: Colors.green));
@@ -716,10 +703,8 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 }
 
-// ================================================================
-// NEW: DISABILITY VERIFICATION PAGE
-// Users upload card ID and card photo for admin verification
-// ================================================================
+// ---------------- disability verification page ----------------
+// user enters card id + takes a photo, admin checks it later
 class DisabilityVerificationPage extends StatefulWidget {
   final String username;
   const DisabilityVerificationPage({required this.username});
@@ -736,6 +721,7 @@ class _DisabilityVerificationPageState
   bool _uploading = false;
   final _imagePicker = ImagePicker();
 
+  // open camera and keep the photo
   Future<void> _pickImage() async {
     try {
       final pickedFile = await _imagePicker.pickImage(
@@ -763,7 +749,7 @@ class _DisabilityVerificationPageState
     setState(() => _uploading = true);
 
     try {
-      // Upload photo to Firebase Storage
+      // upload the photo to storage
       final ref = FirebaseStorage.instance
           .ref()
           .child('disability_cards')
@@ -773,7 +759,7 @@ class _DisabilityVerificationPageState
       await ref.putFile(_cardPhoto!);
       final photoUrl = await ref.getDownloadURL();
 
-      // Save verification data to Firestore
+      // save card id + photo url on the user doc, status back to pending
       await FirebaseFirestore.instance
           .collection('users')
           .doc(widget.username)
@@ -792,7 +778,7 @@ class _DisabilityVerificationPageState
         ),
       );
 
-      // FIXED: Use MaterialPageRoute instead of pushReplacementNamed
+      // done, go back to login
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => LoginPage()),
@@ -859,6 +845,7 @@ class _DisabilityVerificationPageState
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             SizedBox(height: 12),
+            // show the photo if taken, otherwise an empty placeholder
             if (_cardPhoto != null)
               Container(
                 width: double.infinity,
@@ -936,9 +923,7 @@ class _DisabilityVerificationPageState
   }
 }
 
-// ================================================================
-// HIDDEN ADMIN SIGN UP
-// ================================================================
+// ---------------- hidden admin sign up ----------------
 class AdminSignUpPage extends StatefulWidget {
   @override
   State<AdminSignUpPage> createState() => _AdminSignUpPageState();
@@ -956,6 +941,7 @@ class _AdminSignUpPageState extends State<AdminSignUpPage> {
 
   Future<void> register() async {
     if (!_formKey.currentState!.validate()) return;
+    // check the secret code before creating anything
     if (secretController.text.trim() != _adminSecret) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text("Incorrect admin secret code"),
@@ -1081,9 +1067,8 @@ class _AdminSignUpPageState extends State<AdminSignUpPage> {
   }
 }
 
-// ================================================================
-// ADMIN DASHBOARD — Updated with Verify Users option
-// ================================================================
+// ---------------- admin dashboard ----------------
+// list of admin tools (verify users, buses, locations, qr scan...)
 class AdminDashboardPage extends StatelessWidget {
   final String nickname;
   final String username;
@@ -1186,6 +1171,7 @@ class AdminDashboardPage extends StatelessWidget {
   }
 }
 
+// one tappable row on the admin dashboard
 class _AdminCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -1248,9 +1234,8 @@ class _AdminCard extends StatelessWidget {
   }
 }
 
-// ================================================================
-// NEW: VERIFY DISABLED USERS PAGE — Admin approval interface
-// ================================================================
+// ---------------- verify disabled users (admin) ----------------
+// shows users with pending status, admin can approve or decline
 class VerifyDisabledUsersPage extends StatelessWidget {
   final _users = FirebaseFirestore.instance.collection('users');
 
@@ -1271,14 +1256,15 @@ class VerifyDisabledUsersPage extends StatelessWidget {
             return Center(child: CircularProgressIndicator());
           if (snapshot.hasError)
             return Center(child: Text("Error: ${snapshot.error}"));
-          
+
+          // only keep the pending ones
           final docs = snapshot.data?.docs ?? [];
           final pendingDocs = docs
               .where((doc) =>
                   (doc.data() as Map<String, dynamic>)['verificationStatus'] ==
                   'pending')
               .toList();
-          
+
           if (pendingDocs.isEmpty) {
             return Center(
               child: Column(
@@ -1354,6 +1340,7 @@ class VerifyDisabledUsersPage extends StatelessWidget {
                           SizedBox(height: 12),
                           Row(
                             children: [
+                              // decline button
                               Expanded(
                                 child: OutlinedButton.icon(
                                   icon: Icon(Icons.close, color: Colors.red),
@@ -1403,6 +1390,7 @@ class VerifyDisabledUsersPage extends StatelessWidget {
                                 ),
                               ),
                               SizedBox(width: 12),
+                              // approve button
                               Expanded(
                                 child: ElevatedButton.icon(
                                   icon: Icon(Icons.check),
@@ -1466,9 +1454,7 @@ class VerifyDisabledUsersPage extends StatelessWidget {
   }
 }
 
-// ================================================================
-// ADMIN — MANAGE USERS
-// ================================================================
+// ---------------- manage users (admin) ----------------
 class ManageUsersPage extends StatelessWidget {
   final _users = FirebaseFirestore.instance.collection('users');
 
@@ -1515,6 +1501,7 @@ class ManageUsersPage extends StatelessWidget {
                     style: TextStyle(
                         color: isDisabled ? Colors.purple : Colors.grey[600]),
                   ),
+                  // delete user (asks first)
                   trailing: IconButton(
                     icon: Icon(Icons.delete, color: Colors.red),
                     onPressed: () async {
@@ -1557,9 +1544,8 @@ class ManageUsersPage extends StatelessWidget {
   }
 }
 
-// ================================================================
-// ADMIN — QR SCANNER PAGE
-// ================================================================
+// ---------------- qr scanner (admin) ----------------
+// scans the user's qr and checks them into their seat
 class QRScannerPage extends StatefulWidget {
   @override
   State<QRScannerPage> createState() => _QRScannerPageState();
@@ -1573,9 +1559,11 @@ class _QRScannerPageState extends State<QRScannerPage> {
   final MobileScannerController _controller = MobileScannerController();
 
   Future<void> _handleQRCode(String rawValue) async {
+    // ignore scans while busy or already done
     if (_processing || _scanComplete) return;
     setState(() => _processing = true);
 
+    // qr format: utp-smartride|username|busName|seatNumber
     final parts = rawValue.split('|');
     if (parts.length != 4 || parts[0] != 'utp-smartride') {
       setState(() {
@@ -1593,6 +1581,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
     try {
       final db = FirebaseFirestore.instance;
 
+      // make sure the user exists and is a disabled user
       final userDoc = await db.collection('users').doc(username).get();
       if (!userDoc.exists || userDoc.data()?['isDisabled'] != true) {
         setState(() {
@@ -1603,6 +1592,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
         return;
       }
 
+      // check the seat isn't taken already
       final seatDoc = await db
           .collection('buses')
           .doc(busName)
@@ -1619,6 +1609,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
         return;
       }
 
+      // mark seat as taken + checked in
       await db
           .collection('buses')
           .doc(busName)
@@ -1663,6 +1654,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
         backgroundColor: Colors.cyan,
         foregroundColor: Colors.white,
         actions: [
+          // lets admin scan the next person
           if (_scanComplete)
             TextButton(
               onPressed: () {
@@ -1680,6 +1672,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
       ),
       body: Column(
         children: [
+          // camera view
           Expanded(
             flex: 3,
             child: MobileScanner(
@@ -1695,6 +1688,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
               },
             ),
           ),
+          // status area under the camera
           Expanded(
             flex: 1,
             child: Container(
@@ -1733,9 +1727,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
   }
 }
 
-// ================================================================
-// ADMIN — MANAGE LOCATION COORDINATES
-// ================================================================
+// ---------------- manage location coordinates (admin) ----------------
+// pick a stop, then set its lat/lng (type it or long-press the map)
 class ManageLocationCoordinatesPage extends StatefulWidget {
   @override
   State<ManageLocationCoordinatesPage> createState() => _ManageLocationCoordinatesPageState();
@@ -1757,6 +1750,7 @@ class _ManageLocationCoordinatesPageState extends State<ManageLocationCoordinate
     _updateMarker();
   }
 
+  // redraw the marker for the selected point
   void _updateMarker() {
     if (_selectedCoordinate != null) {
       _markers = {
@@ -1773,6 +1767,7 @@ class _ManageLocationCoordinatesPageState extends State<ManageLocationCoordinate
     }
   }
 
+  // long press on map fills in the lat/lng fields
   void _onMapLongPress(LatLng position) {
     setState(() {
       _selectedCoordinate = position;
@@ -1788,6 +1783,7 @@ class _ManageLocationCoordinatesPageState extends State<ManageLocationCoordinate
     );
   }
 
+  // save to locations/coordinates, merge so other stops stay
   Future<void> _saveCoordinates() async {
     if (_selectedLocation == null || _latController.text.isEmpty || _lngController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1814,6 +1810,7 @@ class _ManageLocationCoordinatesPageState extends State<ManageLocationCoordinate
         ),
       );
 
+      // reset the form
       _latController.clear();
       _lngController.clear();
       setState(() {
@@ -1860,6 +1857,7 @@ class _ManageLocationCoordinatesPageState extends State<ManageLocationCoordinate
                 ]),
               ),
               SizedBox(height: 16),
+              // map
               Container(
                 height: 300,
                 clipBehavior: Clip.antiAlias,
@@ -1883,6 +1881,7 @@ class _ManageLocationCoordinatesPageState extends State<ManageLocationCoordinate
                 ),
               ),
               SizedBox(height: 16),
+              // location dropdown
               StreamBuilder<List<String>>(
                 stream: LocationService.stream(),
                 builder: (context, snapshot) {
@@ -1938,6 +1937,7 @@ class _ManageLocationCoordinatesPageState extends State<ManageLocationCoordinate
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 12),
+              // list of saved coordinates
               StreamBuilder<DocumentSnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('locations')
@@ -1946,19 +1946,19 @@ class _ManageLocationCoordinatesPageState extends State<ManageLocationCoordinate
                 builder: (context, snapshot) {
                   if (!snapshot.hasData)
                     return Center(child: CircularProgressIndicator());
-                  
+
                   final data = snapshot.data?.data() as Map<String, dynamic>? ?? {};
-                  
+
                   if (data.isEmpty)
                     return Center(child: Text("No coordinates saved yet"));
-                  
+
                   return Column(
                     children: data.entries.map((entry) {
                       final locName = entry.key;
                       final coords = entry.value as Map<String, dynamic>;
                       final lat = coords['lat'];
                       final lng = coords['lng'];
-                      
+
                       return Card(
                         margin: EdgeInsets.only(bottom: 10),
                         child: ListTile(
@@ -2001,9 +2001,8 @@ class _ManageLocationCoordinatesPageState extends State<ManageLocationCoordinate
   }
 }
 
-// ================================================================
-// MANAGE LOCATIONS
-// ================================================================
+// ---------------- manage locations (admin) ----------------
+// add / remove / reorder the pickup + destination list
 class ManageLocationsPage extends StatefulWidget {
   @override
   State<ManageLocationsPage> createState() => _ManageLocationsPageState();
@@ -2015,6 +2014,7 @@ class _ManageLocationsPageState extends State<ManageLocationsPage> {
   Future<void> _addLocation(List<String> current) async {
     final name = _newLocationController.text.trim();
     if (name.isEmpty) return;
+    // no duplicates (ignore case)
     if (current.map((e) => e.toLowerCase()).contains(name.toLowerCase())) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text("'$name' already exists")));
@@ -2063,6 +2063,7 @@ class _ManageLocationsPageState extends State<ManageLocationsPage> {
           final locations = snapshot.data!;
           return Column(
             children: [
+              // add new location row
               Padding(
                 padding: EdgeInsets.all(16),
                 child: Row(
@@ -2088,6 +2089,7 @@ class _ManageLocationsPageState extends State<ManageLocationsPage> {
                 ),
               ),
               Divider(),
+              // drag to reorder, saves the new order
               Expanded(
                 child: ReorderableListView.builder(
                   padding: EdgeInsets.symmetric(horizontal: 16),
@@ -2130,9 +2132,7 @@ class _ManageLocationsPageState extends State<ManageLocationsPage> {
   }
 }
 
-// ================================================================
-// MANAGE BUSES
-// ================================================================
+// ---------------- manage buses (admin) ----------------
 class ManageBusesPage extends StatefulWidget {
   @override
   State<ManageBusesPage> createState() => _ManageBusesPageState();
@@ -2174,6 +2174,7 @@ class _ManageBusesPageState extends State<ManageBusesPage> {
         backgroundColor: Colors.green));
   }
 
+  // set every seat of the bus back to available
   Future<void> _resetSeats(String busName) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -2205,6 +2206,7 @@ class _ManageBusesPageState extends State<ManageBusesPage> {
         backgroundColor: Colors.orange));
   }
 
+  // delete the bus and all its seats
   Future<void> _deleteBus(String busName) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -2242,6 +2244,7 @@ class _ManageBusesPageState extends State<ManageBusesPage> {
           foregroundColor: Colors.white),
       body: Column(
         children: [
+          // add bus form
           Padding(
             padding: EdgeInsets.all(16),
             child: Column(
@@ -2287,6 +2290,7 @@ class _ManageBusesPageState extends State<ManageBusesPage> {
             ),
           ),
           Divider(),
+          // bus list
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: _buses.snapshots(),
@@ -2347,10 +2351,8 @@ class _ManageBusesPageState extends State<ManageBusesPage> {
   }
 }
 
-// ================================================================
-// LOCATION PAGE — Updated to check verification status
-// FIXED: Added resubmit button for declined verification
-// ================================================================
+// ---------------- location page (user home) ----------------
+// pick pickup + destination. disabled users must be approved first
 class LocationPage extends StatefulWidget {
   final String nickname;
   final String username;
@@ -2384,7 +2386,7 @@ class _LocationPageState extends State<LocationPage> {
       return;
     }
 
-    // Check if disabled user is verified
+    // block disabled users that aren't approved yet
     if (widget.isDisabled && widget.verificationStatus != 'approved') {
       if (widget.verificationStatus == 'pending') {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2395,7 +2397,7 @@ class _LocationPageState extends State<LocationPage> {
           ),
         );
       } else if (widget.verificationStatus == 'declined') {
-        // FIXED: Added SnackBar action to allow resubmission
+        // declined -> snackbar with a resubmit button
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Your verification was declined."),
@@ -2465,6 +2467,7 @@ class _LocationPageState extends State<LocationPage> {
           if (!snapshot.hasData)
             return Center(child: CircularProgressIndicator());
           final locations = snapshot.data!;
+          // clear selection if admin removed that location
           if (selectedPickup != null &&
               !locations.contains(selectedPickup)) selectedPickup = null;
           if (selectedDestination != null &&
@@ -2482,6 +2485,7 @@ class _LocationPageState extends State<LocationPage> {
                     icon: Icons.route_rounded,
                   ),
                   SizedBox(height: 20),
+                  // verification banner (pending / declined / approved)
                   if (widget.isDisabled) ...[
                     if (widget.verificationStatus == 'pending')
                       Container(
@@ -2544,6 +2548,7 @@ class _LocationPageState extends State<LocationPage> {
                         ]),
                       ),
                   ],
+                  // pickup + destination card
                   Container(
                     padding: EdgeInsets.all(20),
                     decoration: AppUI.card(radius: 24),
@@ -2562,6 +2567,7 @@ class _LocationPageState extends State<LocationPage> {
                           onChanged: (val) =>
                               setState(() => selectedPickup = val),
                         ),
+                        // little line between the two dropdowns
                         Padding(
                           padding:
                               const EdgeInsets.symmetric(vertical: 6),
@@ -2607,9 +2613,8 @@ class _LocationPageState extends State<LocationPage> {
   }
 }
 
-// ================================================================
-// BUS SELECTION PAGE
-// ================================================================
+// ---------------- bus selection page ----------------
+// disabled users -> pick a seat, normal users -> straight to tracking
 class BusSelectionPage extends StatelessWidget {
   final String pickup;
   final String destination;
@@ -2631,6 +2636,7 @@ class BusSelectionPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // shows pickup -> destination
             Container(
               width: double.infinity,
               padding:
@@ -2665,6 +2671,7 @@ class BusSelectionPage extends StatelessWidget {
               ),
             ),
             SizedBox(height: 16),
+            // bus list
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
@@ -2749,9 +2756,8 @@ class BusSelectionPage extends StatelessWidget {
   }
 }
 
-// ================================================================
-// SEAT SELECTION PAGE — disabled users only
-// ================================================================
+// ---------------- seat selection page ----------------
+// only for disabled users
 class SeatSelectionPage extends StatefulWidget {
   final String busName;
   final String username;
@@ -2783,6 +2789,7 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("${widget.busName} - Select a Seat")),
+      // first stream: bus doc (for seat count)
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
             .collection('buses')
@@ -2797,6 +2804,7 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
           final seats =
               List.generate(seatCount, (i) => "Seat ${i + 1}");
 
+          // second stream: which seats are taken
           return StreamBuilder<QuerySnapshot>(
             stream: seatsRef.snapshots(),
             builder: (context, snapshot) {
@@ -2834,6 +2842,7 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
                       ]),
                     ),
                     SizedBox(height: 12),
+                    // legend
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -2844,6 +2853,7 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
                       ],
                     ),
                     SizedBox(height: 12),
+                    // seat grid
                     Expanded(
                       child: GridView.builder(
                         gridDelegate:
@@ -2938,9 +2948,7 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
   }
 }
 
-// ================================================================
-// SEATBELT CONFIRMATION PAGE
-// ================================================================
+// ---------------- seatbelt confirmation page ----------------
 class SeatbeltConfirmationPage extends StatefulWidget {
   final String busName;
   final String seatNumber;
@@ -2964,6 +2972,7 @@ class SeatbeltConfirmationPage extends StatefulWidget {
 class _SeatbeltConfirmationPageState extends State<SeatbeltConfirmationPage> {
   bool _seatbeltFastened = false;
 
+  // can only continue if the checkbox is ticked
   void _confirmSeatbelt() {
     if (!_seatbeltFastened) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -3106,9 +3115,8 @@ class _SeatbeltConfirmationPageState extends State<SeatbeltConfirmationPage> {
   }
 }
 
-// ================================================================
-// QR CODE PAGE
-// ================================================================
+// ---------------- qr code page ----------------
+// user shows this to the staff, flips to "confirmed" once scanned
 class QRCodePage extends StatelessWidget {
   final String busName;
   final String seatNumber;
@@ -3119,6 +3127,7 @@ class QRCodePage extends StatelessWidget {
       required this.seatNumber,
       required this.username});
 
+  // same format the scanner expects
   String get _qrData =>
       'utp-smartride|$username|$busName|$seatNumber';
 
@@ -3130,6 +3139,7 @@ class QRCodePage extends StatelessWidget {
         backgroundColor: Colors.purple,
         foregroundColor: Colors.white,
       ),
+      // watch the seat doc to see when staff checks us in
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
             .collection('buses')
@@ -3149,6 +3159,7 @@ class QRCodePage extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // already checked in
                   if (isCheckedIn) ...[
                     Icon(Icons.check_circle,
                         color: Colors.green, size: 80),
@@ -3176,6 +3187,7 @@ class QRCodePage extends StatelessWidget {
                       ),
                       child: Text("View Live Tracking"),
                     ),
+                  // not checked in yet, show the qr
                   ] else ...[
                     Text("Show this to the bus staff",
                         style: TextStyle(
@@ -3236,6 +3248,7 @@ class QRCodePage extends StatelessWidget {
   }
 }
 
+// small colored dot + label for the seat legend
 class _LegendDot extends StatelessWidget {
   final Color color;
   final String label;
@@ -3257,9 +3270,8 @@ class _LegendDot extends StatelessWidget {
   }
 }
 
-// ================================================================
-// LIVE TRACKING PAGE
-// ================================================================
+// ---------------- live tracking page ----------------
+// map with bus position, route to pickup, eta + distance
 class LiveTrackingPage extends StatefulWidget {
   final String busName;
   final String seatNumber;
@@ -3289,11 +3301,11 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
   String _eta = "Loading...";
   String _distance = "";
 
-  // 🔑 Google Maps API Key (Distance Matrix API) - used for road-based ETA/distance
+  // google maps key, used for directions / distance matrix
   static const String _googleMapsApiKey =
       'AIzaSyAMl_NDTSjZ6pu9MD7LGcrmtm_65R73wqw';
 
-  // Throttle so we don't spam the Distance Matrix API on every GPS tick
+  // don't call the api on every gps update, wait a few secs between calls
   DateTime _lastEtaFetch = DateTime.now().subtract(const Duration(seconds: 10));
   static const Duration _etaThrottle = Duration(seconds: 3);
 
@@ -3302,29 +3314,30 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
     super.initState();
     debugPrint('🚌 LiveTrackingPage initialized for bus: ${widget.busName}');
     _initializeLocations();
-    
-    // Delay listener setup to ensure Firebase is fully ready
+
+    // small delay so firebase is ready before we listen
     Future.delayed(Duration(milliseconds: 500), () {
       _listenToBusLocation();
     });
-    
+
     _updateMarkers();
   }
 
+  // get the pickup coordinates from firestore
   Future<void> _initializeLocations() async {
     try {
       if (widget.pickup != null) {
         debugPrint('🔍 Looking for pickup location: ${widget.pickup}');
-        
+
         final locDoc = await FirebaseFirestore.instance
             .collection('locations')
             .doc('coordinates')
             .get();
-        
+
         if (locDoc.exists) {
           final data = locDoc.data() as Map<String, dynamic>;
           debugPrint('📍 Available coordinates: ${data.keys.toList()}');
-          
+
           if (data.containsKey(widget.pickup)) {
             final coords = data[widget.pickup];
             setState(() {
@@ -3333,7 +3346,7 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
             });
             debugPrint('✓ Pickup location found: $_pickupLocation');
 
-            // We now know the pickup, so try fetching ETA/distance right away
+            // got the pickup, get eta right away
             _updateETAandDistance();
           } else {
             debugPrint('⚠️ Pickup location "${widget.pickup}" not found in coordinates');
@@ -3347,18 +3360,19 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
     }
   }
 
+  // listen to the bus gps in realtime database
   void _listenToBusLocation() {
     String path = 'buses/${widget.busName}/location/current';
     debugPrint('═══════════════════════════════════════════════════════');
     debugPrint('🚌 Setting up bus location listener for: $path');
-    
+
     final ref = FirebaseDatabase.instanceFor(
       app: Firebase.app(),
       databaseURL:
           'https://utpsmartride-db-default-rtdb.asia-southeast1.firebasedatabase.app',
     ).ref(path);
-    
-    // First, try to read data once to verify connection
+
+    // read once first, just to check the connection works
     ref.get().then((snapshot) {
       debugPrint('✓ Initial data fetch successful');
       debugPrint('Data exists: ${snapshot.exists}');
@@ -3368,36 +3382,37 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
     }).catchError((e) {
       debugPrint('❌ Initial fetch error: $e');
     });
-    
-    // Now set up continuous listener
+
+    // then keep listening for updates
     ref.onValue.listen(
       (DatabaseEvent event) {
         debugPrint('📡 New data received');
-        
+
         if (event.snapshot.exists) {
           try {
             final snapshot = event.snapshot;
             final latValue = snapshot.child('latitude').value;
             final lngValue = snapshot.child('longitude').value;
-            
+
             if (latValue != null && lngValue != null) {
               final lat = (latValue as num).toDouble();
               final lng = (lngValue as num).toDouble();
-              
+
               debugPrint('✅ Bus Location: Lat=$lat, Lng=$lng');
-              
+
               setState(() {
                 _busLocation = LatLng(lat, lng);
                 _updateMarkers();
               });
-              
+
+              // move camera to follow the bus
               if (_mapController != null) {
                 _mapController?.animateCamera(
                   CameraUpdate.newLatLng(_busLocation),
                 );
               }
 
-              // 🆕 Recalculate ETA/distance using Google Maps on every new bus position
+              // new bus position -> refresh eta / route
               _updateETAandDistance();
             } else {
               debugPrint('⚠️ latitude=$latValue, longitude=$lngValue');
@@ -3413,19 +3428,15 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
         debugPrint('❌ onValue error: $error');
       },
     );
-    
+
     debugPrint('═══════════════════════════════════════════════════════');
   }
 
-  // ================================================================
-  // 🆕 ETA + DISTANCE + ROUTE — one Google Maps Directions API call
-  // returns the road route (polyline), distance and duration.
-  // The route is recalculated from the bus's CURRENT position on
-  // every refresh, so if the bus drives a different road than the
-  // drawn one, the line automatically re-routes on the next update.
-  // Falls back to Distance Matrix (ETA/distance only, no route line)
-  // if the Directions API is not enabled on the key.
-  // ================================================================
+  // eta + distance + route line, all from one Directions API call.
+  // it starts from the bus's current position each time, so the line
+  // re-routes by itself if the bus takes a different road.
+  // if Directions isn't enabled on the key we fall back to Distance Matrix
+  // (eta + distance only, no line)
   Future<void> _updateETAandDistance() async {
     if (_pickupLocation == null) {
       setState(() {
@@ -3436,7 +3447,7 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
       return;
     }
 
-    // Throttle: only call the API once every few seconds
+    // throttle, skip if we called too recently
     final now = DateTime.now();
     if (now.difference(_lastEtaFetch) < _etaThrottle) {
       return;
@@ -3470,8 +3481,7 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
 
       if (data['status'] != 'OK') {
         debugPrint('⚠️ Directions status: ${data['status']}');
-        // Key probably doesn't have Directions API enabled — keep
-        // ETA/distance working through the old Distance Matrix call.
+        // REQUEST_DENIED = Directions API not enabled, use the old call
         if (data['status'] == 'REQUEST_DENIED') {
           await _fallbackDistanceMatrix();
         }
@@ -3488,7 +3498,7 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
       final int distanceMeters = leg['distance']['value'] as int;
       final int durationSeconds = leg['duration']['value'] as int;
 
-      // Decode the encoded overview polyline into map points
+      // decode the polyline into map points
       final String encoded =
           route['overview_polyline']['points'] as String;
       final List<PointLatLng> decoded =
@@ -3501,7 +3511,7 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
       final double durationMinutes = durationSeconds / 60.0;
 
       setState(() {
-        // Route line: bus → pickup, redrawn from the live bus position
+        // route line from bus to pickup
         _polylines = {
           Polyline(
             polylineId: const PolylineId("bus_route"),
@@ -3515,10 +3525,12 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
           ),
         };
 
+        // format distance (m if under 1 km)
         _distance = distanceKm < 1.0
             ? "$distanceMeters m"
             : "${distanceKm.toStringAsFixed(2)} km";
 
+        // format eta
         if (durationMinutes < 1) {
           _eta = "Arriving now";
         } else if (durationMinutes < 60) {
@@ -3537,8 +3549,7 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
     }
   }
 
-  // Old Distance Matrix logic, kept as a fallback so ETA/distance
-  // still work even if the Directions API isn't enabled on the key.
+  // old distance matrix version, only used if Directions API isn't enabled
   Future<void> _fallbackDistanceMatrix() async {
     try {
       final String url =
@@ -3596,6 +3607,7 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
     }
   }
 
+  // rebuild the bus + pickup markers
   void _updateMarkers() {
     _markers = {
       Marker(
@@ -3607,7 +3619,7 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
         ),
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
       ),
-      
+
       if (_pickupLocation != null)
         Marker(
           markerId: const MarkerId("pickup"),
@@ -3631,7 +3643,7 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
       appBar: AppBar(title: Text("${widget.busName} - Live Tracking")),
       body: Stack(
         children: [
-          // Map
+          // map
           GoogleMap(
             onMapCreated: _onMapCreated,
             initialCameraPosition: CameraPosition(
@@ -3641,8 +3653,8 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
             markers: _markers,
             polylines: _polylines,
           ),
-          
-          // DEBUG: Show bus coordinates on screen
+
+          // debug box, shows the bus coordinates
           Positioned(
             top: 16,
             right: 16,
@@ -3695,8 +3707,8 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
               ),
             ),
           ),
-          
-          // Bottom info panel
+
+          // bottom panel (eta, distance, pickup, seat, qr button)
           Padding(
             padding: const EdgeInsets.all(16),
             child: Align(
@@ -3789,6 +3801,7 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
                           ],
                         ),
                       ),
+                    // seat chip + qr button, disabled users only
                     if (widget.isDisabled && widget.seatNumber != "—") ...[
                       const SizedBox(height: 12),
                       Container(
