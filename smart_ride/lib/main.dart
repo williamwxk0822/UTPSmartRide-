@@ -18,11 +18,11 @@ void main() async {
       }
       throw error;
     });
-    debugPrint('✓ Firebase initialized successfully');
+    debugPrint('Firebase initialized successfully');
   } on FirebaseException catch (e) {
-    debugPrint('⚠️ Firebase warning: ${e.code} - ${e.message}');
+    debugPrint('Firebase warning: ${e.code} - ${e.message}');
   } catch (e) {
-    debugPrint('⚠️ Firebase catch-all: $e');
+    debugPrint('Firebase catch-all: $e');
   }
 
   runApp(LoginApp());
